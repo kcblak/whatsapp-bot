@@ -7,7 +7,7 @@
     "start": "node index.js"
   },
   "dependencies": {
-    "@whiskeysockets/baileys": "^5.0.1",
+    "@whiskeysockets/baileys": "^6.7.18",
     "@supabase/supabase-js": "^2.39.5",
     "dotenv": "^16.3.1"
   }
