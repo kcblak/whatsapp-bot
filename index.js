@@ -1,4 +1,6 @@
-import makeWASocket, { useSingleFileAuthState } from '@whiskeysockets/baileys'
+import baileys from '@whiskeysockets/baileys'
+const makeWASocket = baileys.default
+const { useSingleFileAuthState } = baileys
 import fs from 'fs'
 import dotenv from 'dotenv'
 import { loadSession, saveSession } from './pgclient.js'
