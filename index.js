@@ -1,6 +1,7 @@
 import baileys from '@whiskeysockets/baileys'
 const makeWASocket = baileys.default
 const { useSingleFileAuthState } = baileys
+
 import fs from 'fs'
 import dotenv from 'dotenv'
 import { loadSession, saveSession } from './pgclient.js'
@@ -10,8 +11,12 @@ dotenv.config()
 const AUTH_FILE = './auth_info.json'
 
 async function startBot() {
-  const existingSession = await loadSession()
-  if (existingSession) fs.writeFileSync(AUTH_FILE, JSON.stringify(existingSession))
+  try {
+    const existingSession = await loadSession()
+    if (existingSession) fs.writeFileSync(AUTH_FILE, JSON.stringify(existingSession))
+  } catch (err) {
+    console.error('Error loading session:', err)
+  }
 
   const { state, saveState } = useSingleFileAuthState(AUTH_FILE)
 
