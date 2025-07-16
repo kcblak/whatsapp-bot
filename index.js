@@ -1,7 +1,8 @@
 import makeWASocket, { useSingleFileAuthState } from '@whiskeysockets/baileys'
-import { loadSession, saveSession } from './supabase.js'
 import fs from 'fs'
 import dotenv from 'dotenv'
+import { loadSession, saveSession } from './pgclient.js'
+
 dotenv.config()
 
 const AUTH_FILE = './auth_info.json'
@@ -11,6 +12,7 @@ async function startBot() {
   if (existingSession) fs.writeFileSync(AUTH_FILE, JSON.stringify(existingSession))
 
   const { state, saveState } = useSingleFileAuthState(AUTH_FILE)
+
   const sock = makeWASocket({
     auth: state,
     printQRInTerminal: true
