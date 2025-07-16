@@ -4,7 +4,7 @@ const { useSingleFileAuthState } = baileys
 
 import fs from 'fs'
 import dotenv from 'dotenv'
-import { loadSession, saveSession } from './pgclient.js'
+import { loadSession, saveSession } from './supabase-client.js'
 
 dotenv.config()
 
