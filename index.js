@@ -47,57 +47,66 @@ const botConfig = {
 };
 
 // Message handler function
+// Utility to load responses from file
+function loadBotResponses() {
+    const filePath = path.join(__dirname, 'bot-messages.txt');
+    const responses = {};
+    if (fs.existsSync(filePath)) {
+        const lines = fs.readFileSync(filePath, 'utf-8').split('\n');
+        for (const line of lines) {
+            if (line.trim().length === 0 || line.startsWith('#')) continue;
+            const [cmd, ...respArr] = line.split('|');
+            if (cmd && respArr.length > 0) {
+                responses[cmd.trim()] = respArr.join('|').trim();
+            }
+        }
+    }
+    return responses;
+}
+
+// Utility to log incoming messages
+function logIncomingMessage(sender, message) {
+    const filePath = path.join(__dirname, 'incoming-messages.txt');
+    const logLine = `${new Date().toISOString()} | ${sender} | ${message}\n`;
+    fs.appendFileSync(filePath, logLine);
+}
+
 async function handleMessage(message) {
     try {
         const messageText = message.message?.conversation || 
                            message.message?.extendedTextMessage?.text || '';
-        
         const senderNumber = message.key.remoteJid;
         const isGroup = senderNumber.endsWith('@g.us');
         const isFromMe = message.key.fromMe;
-        
-        // Ignore messages from self
         if (isFromMe) return;
-        
-        // Log incoming message
         logger.info(`Message from ${senderNumber}: ${messageText}`);
-        
-        // Check if message starts with prefix
+        logIncomingMessage(senderNumber, messageText);
+        const botResponses = loadBotResponses();
         if (!messageText.startsWith(botConfig.prefix)) {
-            // Auto-reply for new chats (optional)
             if (!isGroup && messageText.toLowerCase().includes('hello')) {
-                await sock.sendMessage(senderNumber, { text: botConfig.responses.welcome });
+                await sock.sendMessage(senderNumber, { text: botResponses['welcome'] || botConfig.responses.welcome });
             }
             return;
         }
-        
-        // Parse command
         const args = messageText.slice(botConfig.prefix.length).trim().split(/ +/);
         const command = args.shift().toLowerCase();
-        
         let response = '';
-        
         switch (command) {
             case 'help':
-                response = botConfig.responses.help;
+                response = botResponses['help'] || botConfig.responses.help;
                 break;
-                
             case 'ping':
-                response = botConfig.responses.ping;
+                response = botResponses['ping'] || botConfig.responses.ping;
                 break;
-                
             case 'echo':
-                response = args.length > 0 ? args.join(' ') : 'Please provide a message to echo.';
+                response = args.length > 0 ? args.join(' ') : (botResponses['echo'] || 'Please provide a message to echo.');
                 break;
-                
             case 'time':
-                response = `Current time: ${new Date().toLocaleString()}`;
+                response = (botResponses['time'] || '').replace('{time}', new Date().toLocaleString());
                 break;
-                
             case 'info':
-                response = botConfig.responses.info;
+                response = botResponses['info'] || botConfig.responses.info;
                 break;
-                
             case 'status':
                 if (senderNumber.includes(botConfig.ownerNumber)) {
                     response = `Bot Status: Online\nUptime: ${process.uptime()} seconds\nMemory Usage: ${Math.round(process.memoryUsage().heapUsed / 1024 / 1024)} MB`;
@@ -105,14 +114,10 @@ async function handleMessage(message) {
                     response = 'You are not authorized to use this command.';
                 }
                 break;
-                
             default:
-                response = botConfig.responses.unknown;
+                response = botResponses['unknown'] || botConfig.responses.unknown;
         }
-        
-        // Send response
         await sock.sendMessage(senderNumber, { text: response });
-        
     } catch (error) {
         logger.error('Error handling message:', error);
     }
@@ -281,3 +286,8 @@ process.on('unhandledRejection', (reason, promise) => {
     logger.error('Unhandled Rejection at:', promise, 'reason:', reason);
     process.exit(1);
 });
+
+// Keep-alive interval to prevent inactivity
+setInterval(() => {
+    logger.info('Keep-alive ping');
+}, 5 * 60 * 1000); // every 5 minutes
