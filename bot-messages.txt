@@ -4,7 +4,7 @@ help|Available commands: !help, !ping, !echo <message>, !time, !info
 ping|Pong! Bot is online 🤖
 echo|Please provide a message to echo.
 time|Current time: {time}
-!helo blak| Hi
+helo blak| Hi
 info|I am a WhatsApp bot built with Baileys and deployed on Render.
 unknown|Unknown command. Type !help for available commands.
 welcome|Hello! I am a WhatsApp bot. Type !help for commands.
