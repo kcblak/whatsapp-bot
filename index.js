@@ -84,15 +84,24 @@ async function handleMessage(message) {
         const isGroup = senderNumber.endsWith('@g.us');
         const isFromMe = message.key.fromMe;
         if (isFromMe) return;
+        
         logger.info(`Message from ${senderNumber}: ${messageText}`);
         logIncomingMessage(senderNumber, messageText);
         const botResponses = loadBotResponses();
+
+        // Check for micro influencer message
+        if (messageText.toLowerCase().includes('micro influencer')) {
+            await sock.sendMessage(senderNumber, { text: botResponses['micro influencer'] || 'Please contact the admin for more information.' });
+            return;
+        }
+
         if (!messageText.startsWith(botConfig.prefix)) {
             if (!isGroup && messageText.toLowerCase().includes('hello')) {
                 await sock.sendMessage(senderNumber, { text: botResponses['welcome'] || botConfig.responses.welcome });
             }
             return;
         }
+
         const args = messageText.slice(botConfig.prefix.length).trim().split(/ +/);
         const command = args.shift().toLowerCase();
         let response = '';
