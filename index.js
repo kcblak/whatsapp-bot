@@ -91,7 +91,10 @@ async function handleMessage(message) {
 
         // Check for micro influencer message
         if (messageText.toLowerCase().includes('micro influencer')) {
-            await sock.sendMessage(senderNumber, { text: botResponses['micro influencer'] || 'Please contact the admin for more information.' });
+            const response = botResponses['micro influencer'] || 'Please contact the admin for more information.';
+            // Replace \n with actual line breaks
+            const formattedResponse = response.replace(/\\n/g, '\n');
+            await sock.sendMessage(senderNumber, { text: formattedResponse });
             return;
         }
 

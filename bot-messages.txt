@@ -8,7 +8,4 @@ helo blak|Hi
 info|I am a WhatsApp bot built with Baileys and deployed on Render.
 unknown|Unknown command. Type !help for available commands.
 welcome|Hello! I am a WhatsApp bot. Type !help for commands.
-micro influencer|Thanks for reaching out fam, Follow these steps:
-1. Save my contact as Investor Blak
-2. Join Other micro Influencers here to get further instructions.
-Link: https://chat.whatsapp.com/BgWQjxx7C2yEyQLME0RVSu?mode=ac_c
+micro influencer|Thanks for reaching out fam, Follow these steps:\n1. Save my contact as Investor Blak\n2. Join Other micro Influencers here to get further instructions.\nLink: https://chat.whatsapp.com/BgWQjxx7C2yEyQLME0RVSu?mode=ac_c
