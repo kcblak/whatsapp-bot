@@ -58,7 +58,11 @@ function loadBotResponses() {
             if (line.trim().length === 0 || line.startsWith('#')) continue;
             const [cmd, ...respArr] = line.split('|');
             if (cmd && respArr.length > 0) {
-                responses[cmd.trim()] = respArr.join('|').trim();
+                // Remove the prefix if it exists, then store without prefix
+                const cleanCmd = cmd.trim().startsWith(botConfig.prefix) 
+                    ? cmd.trim().slice(botConfig.prefix.length) 
+                    : cmd.trim();
+                responses[cleanCmd] = respArr.join('|').trim();
             }
         }
     }
