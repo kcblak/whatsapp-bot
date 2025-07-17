@@ -5,6 +5,7 @@ const { Boom } = require('@hapi/boom');
 const fs = require('fs');
 const path = require('path');
 const pino = require('pino');
+const qrcode = require("qrcode");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -207,10 +208,15 @@ app.get('/', (req, res) => {
     });
 });
 
-app.get('/qr', (req, res) => {
+app.get('/qr', async (req, res) => {
     if (qrCode) {
-        // You can use a QR code library to generate an image
-        res.json({ qrCode: qrCode });
+        try {
+            const qrPng = await qrcode.toBuffer(qrCode, { type: 'png' });
+            res.setHeader('Content-Type', 'image/png');
+            res.send(qrPng);
+        } catch (err) {
+            res.status(500).json({ error: 'Failed to generate QR code image' });
+        }
     } else {
         res.json({ message: 'No QR code available or already connected' });
     }
