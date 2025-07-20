@@ -6,6 +6,7 @@ const fs = require('fs');
 const path = require('path');
 const pino = require('pino');
 const qrcode = require("qrcode");
+const fetch = require('node-fetch');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -310,6 +311,15 @@ process.on('unhandledRejection', (reason, promise) => {
 });
 
 // Keep-alive interval to prevent inactivity
-setInterval(() => {
-    logger.info('Keep-alive ping');
-}, 5 * 60 * 1000); // every 5 minutes
+setInterval(async () => {
+    try {
+        logger.info('Performing health check ping...');
+        const response = await fetch('https://messenger.ukporpatriotsuk.org/health', {
+            method: 'GET',
+            timeout: 20000
+        });
+        logger.info(`Health check ping status: ${response.status}`);
+    } catch (error) {
+        logger.error('Health check ping failed:', error.message);
+    }
+}, 60000); // every minute
