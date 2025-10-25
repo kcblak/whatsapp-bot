@@ -15,6 +15,7 @@ const { saveSessionDirToDB, restoreSessionDirFromDB, clearSessionInDB } = requir
 const app = express();
 const PORT = process.env.PORT || 3000;
 const RESET_TOKEN = process.env.RESET_TOKEN || null;
+const forceSetupFile = path.join(__dirname, '.force_setup');
 
 // Middleware
 app.use(express.json());
@@ -306,6 +307,42 @@ app.all('/reset-session', async (req, res) => {
     }
 });
 
+app.all('/reset-setup', async (req, res) => {
+    try {
+        const token = req.query.token || req.headers['x-reset-token'];
+        if (RESET_TOKEN && token !== RESET_TOKEN) {
+            return res.status(403).json({ error: 'Forbidden: invalid token' });
+        }
+
+        // Best effort logout and clear runtime state
+        if (sock) {
+            try { await sock.logout(); } catch (e) { logger.warn('Logout issue on reset-setup:', e?.message || e); }
+            sock = null;
+        }
+        try { clearAuthDirectory(); } catch (e) { logger.warn('Failed to clear auth dir on reset-setup:', e?.message || e); }
+        try { await clearSessionInDB(); } catch (e) { logger.warn('Failed to clear DB session on reset-setup:', e?.message || e); }
+
+        // Remove .env to force missing env vars
+        const envPath = path.join(__dirname, '.env');
+        try {
+            if (fs.existsSync(envPath)) {
+                fs.rmSync(envPath, { force: true });
+            }
+        } catch (e) {
+            logger.warn('Failed to remove .env on reset-setup:', e?.message || e);
+        }
+
+        // Create a force setup flag file so /setup appears even if cPanel env vars exist
+        try { fs.writeFileSync(forceSetupFile, '1'); } catch (e) { logger.warn('Failed to write force setup flag:', e?.message || e); }
+
+        res.json({ success: true, message: 'Setup reset. App will restart; visit /setup.' });
+        setTimeout(() => process.exit(0), 500);
+    } catch (error) {
+        logger.error('Error resetting setup:', error);
+        res.status(500).json({ error: 'Failed to reset setup' });
+    }
+});
+
 app.get('/status', (req, res) => {
     res.json({
         connected: sock?.ws?.readyState === 1,
@@ -393,6 +430,7 @@ setInterval(async () => {
 
 
 function isSetupComplete() {
+    if (fs.existsSync(forceSetupFile)) return false;
     const required = ['PGHOST','PGDATABASE','PGUSER','PGPASSWORD','OWNER_NUMBER','RESET_TOKEN'];
     return required.every((k) => process.env[k] && String(process.env[k]).trim().length > 0);
 }
@@ -466,6 +504,9 @@ app.post('/setup', async (req, res) => {
         });
         await tmpPool.query(`CREATE TABLE IF NOT EXISTS sessions (id text PRIMARY KEY, data jsonb, updated_at timestamptz DEFAULT now())`);
         await tmpPool.end();
+
+        // Clear force setup flag if present
+        try { if (fs.existsSync(forceSetupFile)) fs.unlinkSync(forceSetupFile); } catch (e) { /* ignore */ }
 
         res.status(200).send('<html><body><h3>Setup saved. Restarting app...</h3><p>Refresh in a few seconds.</p></body></html>');
         setTimeout(() => process.exit(0), 500);

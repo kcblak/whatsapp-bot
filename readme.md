@@ -239,6 +239,21 @@ Remember: This bot is for educational purposes. Always respect WhatsApp's terms 
 - The wizard writes a `.env` file, creates the `sessions` table, and restarts the app.
 - After restart, go to `/qr` to scan if not already authenticated.
 
+## Reset Setup
+
+If you need to re-run setup from scratch:
+
+- Ensure you have `RESET_TOKEN` set (in `.env` or cPanel env vars).
+- Call the protected endpoint to reset configuration and session:
+  - Browser: `/reset-setup?token=YOUR_SECRET`
+  - Or send header: `x-reset-token: YOUR_SECRET`
+- What it does:
+  - Logs out and clears WhatsApp auth files in `auth_info_baileys/`
+  - Deletes the `sessions` row in Postgres used for backup/restore
+  - Removes `.env` and writes a `/.force_setup` flag so `/setup` appears even if cPanel env vars exist
+  - Restarts the app automatically
+- After restart, visit `/setup` to enter fresh settings.
+
 ## Notes
 - Values are stored in `.env`; ensure the app has write access to the project directory.
 - SSL: use `PGSSL=require` for hosted Postgres (common on Namecheap). If your DB does not require SSL, choose `disable`.
