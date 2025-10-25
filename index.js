@@ -512,6 +512,6 @@ app.post('/setup', async (req, res) => {
         setTimeout(() => process.exit(0), 500);
     } catch (err) {
         logger.error('Setup failed:', err);
-        res.status(500).json({ error: 'Failed to save setup. Check server logs.' });
+        res.status(500).json({ error: 'Failed to save setup', message: (err && err.message) ? err.message : String(err) });
     }
 });
