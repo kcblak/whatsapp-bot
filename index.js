@@ -7,6 +7,9 @@ const path = require('path');
 const pino = require('pino');
 const qrcode = require("qrcode");
 const fetch = require('node-fetch');
+const dotenv = require('dotenv');
+dotenv.config();
+const { Pool } = require('pg');
 const { saveSessionDirToDB, restoreSessionDirFromDB, clearSessionInDB } = require('./db-session');
 
 const app = express();
@@ -15,6 +18,7 @@ const RESET_TOKEN = process.env.RESET_TOKEN || null;
 
 // Middleware
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // Store for the WhatsApp socket
 let sock = null;
@@ -386,3 +390,78 @@ setInterval(async () => {
         logger.error('Health check ping failed:', error.message);
     }
 }, 60000); // every minute
+
+
+function isSetupComplete() {
+    const required = ['PGHOST','PGDATABASE','PGUSER','PGPASSWORD','OWNER_NUMBER','RESET_TOKEN'];
+    return required.every((k) => process.env[k] && String(process.env[k]).trim().length > 0);
+}
+
+app.get('/setup', (req, res) => {
+    if (isSetupComplete()) {
+        return res.status(200).send('<html><body><h3>Setup already completed.</h3><p><a href="/">Go to Home</a></p></body></html>');
+    }
+    res.setHeader('Content-Type', 'text/html');
+    res.send(`<!doctype html>
+    <html>
+    <head><meta charset="utf-8"><title>WhatsApp Bot Setup</title>
+    <style>body{font-family:sans-serif;max-width:720px;margin:24px auto;padding:0 16px}label{display:block;margin-top:12px}input,select{width:100%;padding:8px;margin-top:6px}button{margin-top:16px;padding:10px 16px}</style>
+    </head>
+    <body>
+      <h2>First-Time Setup</h2>
+      <p>Enter your PostgreSQL and bot settings. These will be saved to .env and the app will restart.</p>
+      <form method="POST" action="/setup">
+        <label>PGHOST<input name="PGHOST" placeholder="db.example.com" required></label>
+        <label>PGPORT<input name="PGPORT" type="number" value="5432" required></label>
+        <label>PGDATABASE<input name="PGDATABASE" placeholder="dbname" required></label>
+        <label>PGUSER<input name="PGUSER" placeholder="dbuser" required></label>
+        <label>PGPASSWORD<input name="PGPASSWORD" type="password" placeholder="dbpassword" required></label>
+        <label>PGSSL<select name="PGSSL"><option value="require">require</option><option value="disable">disable</option></select></label>
+        <label>OWNER_NUMBER<input name="OWNER_NUMBER" placeholder="1234567890" required></label>
+        <label>RESET_TOKEN<input name="RESET_TOKEN" placeholder="strong-secret" required></label>
+        <label>PORT<input name="PORT" type="number" value="3000"></label>
+        <button type="submit">Save and Restart</button>
+      </form>
+    </body>
+    </html>`);
+});
+
+app.post('/setup', async (req, res) => {
+    if (isSetupComplete()) {
+        return res.status(400).json({ error: 'Setup already completed' });
+    }
+    try {
+        const {
+            PGHOST, PGPORT, PGDATABASE, PGUSER, PGPASSWORD, PGSSL,
+            OWNER_NUMBER, RESET_TOKEN, PORT
+        } = req.body;
+        const envContent = [
+            `PGHOST=${PGHOST}`,
+            `PGPORT=${PGPORT || 5432}`,
+            `PGDATABASE=${PGDATABASE}`,
+            `PGUSER=${PGUSER}`,
+            `PGPASSWORD=${PGPASSWORD}`,
+            `PGSSL=${PGSSL || 'require'}`,
+            `OWNER_NUMBER=${OWNER_NUMBER}`,
+            `RESET_TOKEN=${RESET_TOKEN}`,
+            `PORT=${PORT || 3000}`,
+        ].join('\n') + '\n';
+        const envPath = path.join(__dirname, '.env');
+        fs.writeFileSync(envPath, envContent, { encoding: 'utf-8' });
+
+        // Try initializing DB table with provided credentials
+        const tmpPool = new Pool({
+            host: PGHOST, port: Number(PGPORT) || 5432, database: PGDATABASE,
+            user: PGUSER, password: PGPASSWORD,
+            ssl: PGSSL === 'require' ? { rejectUnauthorized: false } : undefined,
+        });
+        await tmpPool.query(`CREATE TABLE IF NOT EXISTS sessions (id text PRIMARY KEY, data jsonb, updated_at timestamptz DEFAULT now())`);
+        await tmpPool.end();
+
+        res.status(200).send('<html><body><h3>Setup saved. Restarting app...</h3><p>Refresh in a few seconds.</p></body></html>');
+        setTimeout(() => process.exit(0), 500);
+    } catch (err) {
+        logger.error('Setup failed:', err);
+        res.status(500).json({ error: 'Failed to save setup. Check server logs.' });
+    }
+});

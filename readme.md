@@ -231,3 +231,16 @@ For issues:
 3. Ensure you're not violating any usage policies
 
 Remember: This bot is for educational purposes. Always respect WhatsApp's terms of service and don't use it for spam or harassment.
+
+# Setup Wizard
+
+- Visit `/setup` on first run if required variables are missing.
+- Enter PostgreSQL (`PGHOST`, `PGPORT`, `PGDATABASE`, `PGUSER`, `PGPASSWORD`, `PGSSL`) and bot settings (`OWNER_NUMBER`, `RESET_TOKEN`, optional `PORT`).
+- The wizard writes a `.env` file, creates the `sessions` table, and restarts the app.
+- After restart, go to `/qr` to scan if not already authenticated.
+
+## Notes
+- Values are stored in `.env`; ensure the app has write access to the project directory.
+- SSL: use `PGSSL=require` for hosted Postgres (common on Namecheap). If your DB does not require SSL, choose `disable`.
+- You can re-run setup by deleting `.env` or visiting `/setup` when variables are not set.
+- Reset the WhatsApp session any time at `/reset-session?token=YOUR_SECRET`, then visit `/qr` to scan again.
