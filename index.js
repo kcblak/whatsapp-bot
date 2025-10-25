@@ -11,6 +11,7 @@ const dotenv = require('dotenv');
 dotenv.config();
 const { Pool } = require('pg');
 const { saveSessionDirToDB, restoreSessionDirFromDB, clearSessionInDB } = require('./db-session');
+const db = require('./db');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -385,138 +386,66 @@ app.get('/health', (req, res) => {
     res.json({ status: 'healthy', timestamp: new Date().toISOString() });
 });
 
-// Start server
-app.listen(PORT, () => {
-    logger.info(`Server running on port ${PORT}`);
-    connectToWhatsApp();
-});
-
-// Graceful shutdown
-process.on('SIGINT', async () => {
-    logger.info('Shutting down gracefully...');
-    if (sock) {
-        await sock.logout();
+// Debug endpoint
+app.get('/debug', async (req, res) => {
+  try {
+    const token = req.query.token || req.headers['x-reset-token'];
+    if (RESET_TOKEN && token !== RESET_TOKEN) {
+      return res.status(403).json({ error: 'Forbidden: invalid token' });
     }
-    process.exit(0);
-});
-
-process.on('SIGTERM', async () => {
-    logger.info('Shutting down gracefully...');
-    if (sock) {
-        await sock.logout();
-    }
-    process.exit(0);
-});
-
-// Handle uncaught exceptions
-process.on('uncaughtException', (error) => {
-    logger.error('Uncaught Exception:', error);
-    process.exit(1);
-});
-
-process.on('unhandledRejection', (reason, promise) => {
-    logger.error('Unhandled Rejection at:', promise, 'reason:', reason);
-    process.exit(1);
-});
-
-// Keep-alive interval to prevent inactivity
-setInterval(async () => {
+    let authFiles = 0;
     try {
-        logger.info('Performing health check ping...');
-        const response = await fetch('https://messenger.ukporpatriotsuk.org/health', {
-            method: 'GET',
-            timeout: 20000
-        });
-        logger.info(`Health check ping status: ${response.status}`);
-    } catch (error) {
-        logger.error('Health check ping failed:', error.message);
-    }
-}, 60000); // every minute
-
-
-function isSetupComplete() {
-    if (fs.existsSync(forceSetupFile)) return false;
-    const required = ['PGHOST','PGDATABASE','PGUSER','PGPASSWORD','OWNER_NUMBER','RESET_TOKEN'];
-    return required.every((k) => process.env[k] && String(process.env[k]).trim().length > 0);
-}
-
-app.get('/setup', (req, res) => {
-    if (isSetupComplete()) {
-        return res.status(200).send('<html><body><h3>Setup already completed.</h3><p><a href="/">Go to Home</a></p></body></html>');
-    }
-    res.setHeader('Content-Type', 'text/html');
-    res.send(`<!doctype html>
-    <html>
-    <head><meta charset=\"utf-8\"><title>WhatsApp Bot Setup</title>
-    <style>
-      body{font-family:sans-serif;max-width:760px;margin:24px auto;padding:0 16px}
-      .form-row{display:grid;grid-template-columns:220px 1fr;align-items:center;gap:12px;margin-top:12px}
-      label{font-weight:600}
-      input,select{width:100%;padding:8px}
-      button{margin-top:16px;padding:10px 16px}
-      .section{margin-top:24px;padding-top:8px;border-top:1px solid #eee}
-    </style>
-    </head>
-    <body>
-      <h2>First-Time Setup</h2>
-      <p>Enter your PostgreSQL and bot settings. These will be saved to .env and the app will restart.</p>
-      <form method=\"POST\" action=\"/setup\">
-        <div class=\"section\"><h3>PostgreSQL</h3></div>
-        <div class=\"form-row\"><label for=\"PGHOST\">PGHOST</label><input id=\"PGHOST\" name=\"PGHOST\" placeholder=\"db.example.com\" required></div>
-        <div class=\"form-row\"><label for=\"PGPORT\">PGPORT</label><input id=\"PGPORT\" name=\"PGPORT\" type=\"number\" value=\"5432\" required></div>
-        <div class=\"form-row\"><label for=\"PGDATABASE\">PGDATABASE</label><input id=\"PGDATABASE\" name=\"PGDATABASE\" placeholder=\"dbname\" required></div>
-        <div class=\"form-row\"><label for=\"PGUSER\">PGUSER</label><input id=\"PGUSER\" name=\"PGUSER\" placeholder=\"dbuser\" required></div>
-        <div class=\"form-row\"><label for=\"PGPASSWORD\">PGPASSWORD</label><input id=\"PGPASSWORD\" name=\"PGPASSWORD\" type=\"password\" placeholder=\"dbpassword\" required></div>
-        <div class=\"form-row\"><label for=\"PGSSL\">PGSSL</label><select id=\"PGSSL\" name=\"PGSSL\"><option value=\"require\">require</option><option value=\"disable\">disable</option></select></div>
-        <div class=\"section\"><h3>Bot</h3></div>
-        <div class=\"form-row\"><label for=\"OWNER_NUMBER\">OWNER_NUMBER</label><input id=\"OWNER_NUMBER\" name=\"OWNER_NUMBER\" placeholder=\"1234567890\" required></div>
-        <div class=\"form-row\"><label for=\"RESET_TOKEN\">RESET_TOKEN</label><input id=\"RESET_TOKEN\" name=\"RESET_TOKEN\" placeholder=\"strong-secret\" required></div>
-        <div class=\"form-row\"><label for=\"PORT\">PORT</label><input id=\"PORT\" name=\"PORT\" type=\"number\" value=\"3000\"></div>
-        <button type=\"submit\">Save and Restart</button>
-      </form>
-    </body>
-    </html>`);
-});
-
-app.post('/setup', async (req, res) => {
-    if (isSetupComplete()) {
-        return res.status(400).json({ error: 'Setup already completed' });
-    }
+      if (fs.existsSync(authDir)) {
+        authFiles = fs.readdirSync(authDir).length;
+      }
+    } catch {}
+    let rowCount = null;
     try {
-        const {
-            PGHOST, PGPORT, PGDATABASE, PGUSER, PGPASSWORD, PGSSL,
-            OWNER_NUMBER, RESET_TOKEN, PORT
-        } = req.body;
-        const envContent = [
-            `PGHOST=${PGHOST}`,
-            `PGPORT=${PGPORT || 5432}`,
-            `PGDATABASE=${PGDATABASE}`,
-            `PGUSER=${PGUSER}`,
-            `PGPASSWORD=${PGPASSWORD}`,
-            `PGSSL=${PGSSL || 'require'}`,
-            `OWNER_NUMBER=${OWNER_NUMBER}`,
-            `RESET_TOKEN=${RESET_TOKEN}`,
-            `PORT=${PORT || 3000}`,
-        ].join('\n') + '\n';
-        const envPath = path.join(__dirname, '.env');
-        fs.writeFileSync(envPath, envContent, { encoding: 'utf-8' });
-
-        // Try initializing DB table with provided credentials
-        const tmpPool = new Pool({
-            host: PGHOST, port: Number(PGPORT) || 5432, database: PGDATABASE,
-            user: PGUSER, password: PGPASSWORD,
-            ssl: PGSSL === 'require' ? { rejectUnauthorized: false } : undefined,
-        });
-        await tmpPool.query(`CREATE TABLE IF NOT EXISTS sessions (id text PRIMARY KEY, data jsonb, updated_at timestamptz DEFAULT now())`);
-        await tmpPool.end();
-
-        // Clear force setup flag if present
-        try { if (fs.existsSync(forceSetupFile)) fs.unlinkSync(forceSetupFile); } catch (e) { /* ignore */ }
-
-        res.status(200).send('<html><body><h3>Setup saved. Restarting app...</h3><p>Refresh in a few seconds.</p></body></html>');
-        setTimeout(() => process.exit(0), 500);
-    } catch (err) {
-        logger.error('Setup failed:', err);
-        res.status(500).json({ error: 'Failed to save setup', message: (err && err.message) ? err.message : String(err) });
+      const { rows } = await db.query('SELECT COUNT(*)::int AS c FROM sessions');
+      rowCount = rows?.[0]?.c ?? null;
+    } catch (e) {
+      rowCount = `error: ${e?.message || String(e)}`;
     }
+    const readyState = sock?.ws?.readyState ?? null;
+    res.json({
+      connected: readyState === 1,
+      readyState,
+      qrAvailable: Boolean(qrCode),
+      authFiles,
+      sessionRows: rowCount,
+      env: {
+        host: process.env.PGHOST,
+        db: process.env.PGDATABASE,
+        user: process.env.PGUSER,
+        ssl: process.env.PGSSL,
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'debug failed', message: error?.message || String(error) });
+  }
+});
+app.get('/pairing-code', async (req, res) => {
+  try {
+    const token = req.query.token || req.headers['x-reset-token'];
+    if (RESET_TOKEN && token !== RESET_TOKEN) {
+      return res.status(403).json({ error: 'Forbidden: invalid token' });
+    }
+    if (!sock) {
+      return res.status(503).json({ error: 'Socket not initialized' });
+    }
+    const phone = (req.query.phone || process.env.OWNER_NUMBER || '').replace(/\D/g, '');
+    if (!phone) {
+      return res.status(400).json({ error: 'Missing phone number. Provide ?phone=234xxxxxxxxxx' });
+    }
+    let code;
+    try {
+      code = await sock.requestPairingCode(phone);
+    } catch (e) {
+      return res.status(500).json({ error: 'Failed to request pairing code', message: e?.message || String(e) });
+    }
+    res.json({ success: true, phone, code });
+  } catch (error) {
+    logger.error('Error generating pairing code:', error);
+    res.status(500).json({ error: 'Internal error' });
+  }
 });
