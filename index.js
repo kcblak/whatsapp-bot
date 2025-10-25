@@ -176,12 +176,11 @@ async function connectToWhatsApp() {
         sock = makeWASocket({
             auth: state,
             logger: logger,
-            printQRInTerminal: false, // We'll handle QR code differently for web deployment
+            // printQRInTerminal deprecated; handle via connection.update
             browser: ['My WhatsApp Bot', 'Chrome', '1.0.0'],
             markOnlineOnConnect: true,
             generateHighQualityLinkPreview: true,
             getMessage: async (key) => {
-                // This is important for poll votes and other features
                 return null;
             }
         });
@@ -189,19 +188,25 @@ async function connectToWhatsApp() {
         // Handle connection updates
         sock.ev.on('connection.update', (update) => {
             const { connection, lastDisconnect, qr } = update;
-            
+            // Expanded logging for diagnostics
+            try {
+                logger.info({ updateKeys: Object.keys(update || {}) }, 'connection.update keys');
+                if (lastDisconnect?.error) {
+                    const code = lastDisconnect.error?.output?.statusCode;
+                    logger.warn({ code, err: String(lastDisconnect.error) }, 'lastDisconnect error');
+                }
+            } catch (e) {
+                logger.warn('connection.update logging failed:', e?.message || e);
+            }
             if (qr) {
                 qrCode = qr;
                 logger.info('QR Code generated, scan it with your phone');
             }
-            
             if (connection === 'close') {
-                const shouldReconnect = (lastDisconnect?.error instanceof Boom) 
+                const shouldReconnect = (lastDisconnect?.error instanceof Boom)
                     ? lastDisconnect.error.output.statusCode !== DisconnectReason.loggedOut
                     : true;
-                    
                 logger.info('Connection closed due to', lastDisconnect?.error, ', reconnecting', shouldReconnect);
-                
                 if (shouldReconnect) {
                     setTimeout(connectToWhatsApp, 5000);
                 }
