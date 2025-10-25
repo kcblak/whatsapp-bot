@@ -110,8 +110,27 @@ The bot supports the following commands:
 - `GET /status` - Detailed bot status
 - `GET /health` - Health check
 - `POST /send-message` - Send message via API
+- `ALL /reset-session` - Force logout and clear session to regenerate QR (protected)
 
 ### Send Message API
+
+### Force a New QR (Reset Session)
+
+If `/qr` returns `{"message":"No QR code available or already connected"}`, you can force a fresh QR by resetting the session:
+
+1. Set a token in your environment: `RESET_TOKEN=your-strong-token`
+2. Call the reset endpoint:
+   - Browser: `https://your-app.onrender.com/reset-session?token=your-strong-token`
+   - cURL:
+     ```bash
+     curl -X POST https://your-app.onrender.com/reset-session \
+       -H "x-reset-token: your-strong-token"
+     ```
+3. Then open `https://your-app.onrender.com/qr` and scan the new QR.
+
+Notes:
+- The endpoint logs out, deletes auth files in `auth_info_baileys`, and restarts the WhatsApp connection.
+- If `RESET_TOKEN` is not set, the endpoint is open; it is strongly recommended to set the token in production.
 
 ```bash
 curl -X POST https://your-app.onrender.com/send-message \

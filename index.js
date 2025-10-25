@@ -7,9 +7,11 @@ const path = require('path');
 const pino = require('pino');
 const qrcode = require("qrcode");
 const fetch = require('node-fetch');
+const { saveSessionDirToDB, restoreSessionDirFromDB, clearSessionInDB } = require('./db-session');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const RESET_TOKEN = process.env.RESET_TOKEN || null;
 
 // Middleware
 app.use(express.json());
@@ -27,6 +29,20 @@ const authDir = './auth_info_baileys';
 // Ensure auth directory exists
 if (!fs.existsSync(authDir)) {
     fs.mkdirSync(authDir, { recursive: true });
+}
+
+// Helper to clear Baileys auth directory
+function clearAuthDirectory() {
+    try {
+        if (fs.existsSync(authDir)) {
+            fs.rmSync(authDir, { recursive: true, force: true });
+        }
+        fs.mkdirSync(authDir, { recursive: true });
+        logger.info('Auth directory cleared successfully.');
+    } catch (err) {
+        logger.error('Failed to clear auth directory:', err);
+        throw err;
+    }
 }
 
 // Bot configuration
@@ -144,6 +160,12 @@ async function handleMessage(message) {
 // Connect to WhatsApp
 async function connectToWhatsApp() {
     try {
+        // Try restoring session files from Postgres before initializing Baileys state
+        try {
+            await restoreSessionDirFromDB(authDir);
+        } catch (e) {
+            logger.warn('Failed to restore session from DB:', e?.message || e);
+        }
         const { state, saveCreds } = await useMultiFileAuthState(authDir);
         
         sock = makeWASocket({
@@ -185,7 +207,18 @@ async function connectToWhatsApp() {
         });
         
         // Handle credentials update
-        sock.ev.on('creds.update', saveCreds);
+        sock.ev.on('creds.update', async () => {
+            try {
+                await saveCreds();
+            } catch (e) {
+                logger.warn('Failed to save Baileys creds:', e?.message || e);
+            }
+            try {
+                await saveSessionDirToDB(authDir);
+            } catch (e) {
+                logger.warn('Failed to backup session to DB:', e?.message || e);
+            }
+        });
         
         // Handle incoming messages
         sock.ev.on('messages.upsert', async (messageUpdate) => {
@@ -236,6 +269,36 @@ app.get('/qr', async (req, res) => {
         }
     } else {
         res.json({ message: 'No QR code available or already connected' });
+    }
+});
+
+// Securely reset session to force a new QR
+app.all('/reset-session', async (req, res) => {
+    try {
+        const token = req.query.token || req.headers['x-reset-token'];
+        if (RESET_TOKEN && token !== RESET_TOKEN) {
+            return res.status(403).json({ error: 'Forbidden: invalid token' });
+        }
+
+        // Logout if connected
+        if (sock) {
+            try {
+                await sock.logout();
+            } catch (e) {
+                logger.warn('Logout encountered an issue, proceeding to clear auth:', e?.message || e);
+            }
+            sock = null;
+        }
+
+        // Clear auth files and DB backup, then restart connection
+        clearAuthDirectory();
+        try { await clearSessionInDB(); } catch (e) { logger.warn('Failed to clear DB session:', e?.message || e); }
+        qrCode = null;
+        await connectToWhatsApp();
+        res.json({ success: true, message: 'Session reset. Visit /qr to scan.' });
+    } catch (error) {
+        logger.error('Error resetting session:', error);
+        res.status(500).json({ error: 'Failed to reset session' });
     }
 });
 
