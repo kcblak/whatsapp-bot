@@ -94,6 +94,16 @@
       box-shadow: 0 6px 16px rgba(124,92,255,0.35);
     }
     .btn.primary:hover { background: linear-gradient(180deg, var(--primary-600), var(--primary-700)); }
+    .btn.reset-btn {
+      background: linear-gradient(180deg, #dc2626, #b91c1c);
+      border-color: rgba(255,255,255,0.12);
+      color: white;
+      box-shadow: 0 6px 16px rgba(220,38,38,0.35);
+    }
+    .btn.reset-btn:hover { 
+      background: linear-gradient(180deg, #b91c1c, #991b1b);
+      transform: translateY(-1px);
+    }
 
     .content { padding: 22px 24px; }
     .section-title { margin: 0 0 12px; font-size: 16px; color: var(--muted); }
@@ -167,6 +177,7 @@
           <a class="btn" href="/status" target="_blank">Bot Status</a>
           <a class="btn" href="/qr" target="_blank">QR Code</a>
           <a class="btn" href="/debug?token=unlockit" target="_blank">Debug</a>
+          <button class="btn reset-btn" onclick="resetSession()">Reset QR</button>
           <a class="btn primary" href="/dashboard" >Dashboard</a>
         </div>
       </div>
@@ -256,6 +267,34 @@
         }
       } catch (e) {
         statusEl.textContent = 'Error saving responses';
+      }
+    }
+
+    async function resetSession() {
+      if (!confirm('Are you sure you want to reset the WhatsApp session? This will disconnect the bot and require re-scanning the QR code.')) {
+        return;
+      }
+      
+      try {
+        statusEl.textContent = 'Resetting session...';
+        const response = await fetch('/reset-session', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        
+        if (response.ok) {
+          statusEl.textContent = 'Session reset successfully. Check QR page for new code.';
+          // Open QR page in new tab after reset
+          setTimeout(() => {
+            window.open('/qr', '_blank');
+          }, 1000);
+        } else {
+          const data = await response.json();
+          statusEl.textContent = `Reset failed: ${data.error || 'Unknown error'}`;
+        }
+      } catch (error) {
+        statusEl.textContent = 'Error resetting session';
+        console.error('Reset error:', error);
       }
     }
 
