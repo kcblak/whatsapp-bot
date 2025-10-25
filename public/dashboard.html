@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>WhatsApp Bot Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0b0f14;
+      --bg-alt: #0e141b;
+      --panel: rgba(20, 26, 33, 0.7);
+      --panel-solid: #141a21;
+      --text: #e6edf3;
+      --muted: #9aa7b1;
+      --border: #1f2a36;
+      --primary: #7c5cff;
+      --primary-600: #6b46ff;
+      --primary-700: #5a38f0;
+      --success: #22c55e;
+      --danger: #ef4444;
+      --shadow: 0 10px 30px rgba(0,0,0,0.3);
+      --radius: 14px;
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      color: var(--text);
+      background: radial-gradient(1200px 600px at 20% 20%, #111826 0%, var(--bg) 50%),
+                  radial-gradient(1000px 500px at 80% 0%, #0f172a 0%, var(--bg) 60%);
+      display: flex;
+      align-items: stretch;
+      justify-content: center;
+    }
+    .container {
+      width: 100%;
+      max-width: 1100px;
+      padding: 28px 22px 60px;
+    }
+    .panel {
+      background: var(--panel);
+      backdrop-filter: saturate(1.2) blur(10px);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 22px 24px;
+      background: linear-gradient(180deg, rgba(124,92,255,0.12), transparent);
+      border-bottom: 1px solid var(--border);
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .logo {
+      width: 36px; height: 36px;
+      border-radius: 10px;
+      background: radial-gradient(120px 60px at 30% 30%, #8b5cf6, #4c1d95);
+      border: 1px solid rgba(255,255,255,0.08);
+      box-shadow: 0 8px 20px rgba(124,92,255,0.3);
+    }
+    h1 { font-size: 20px; margin: 0; letter-spacing: 0.2px; }
+    .topbar {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .btn {
+      appearance: none;
+      border: 1px solid var(--border);
+      background: linear-gradient(180deg, #1a2230, #141b26);
+      color: var(--text);
+      padding: 10px 14px;
+      border-radius: 10px;
+      font-weight: 600;
+      letter-spacing: 0.15px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .btn:hover { transform: translateY(-1px); border-color: #2a3a4a; }
+    .btn.primary {
+      background: linear-gradient(180deg, var(--primary), var(--primary-600));
+      border-color: rgba(255,255,255,0.12);
+      box-shadow: 0 6px 16px rgba(124,92,255,0.35);
+    }
+    .btn.primary:hover { background: linear-gradient(180deg, var(--primary-600), var(--primary-700)); }
+
+    .content { padding: 22px 24px; }
+    .section-title { margin: 0 0 12px; font-size: 16px; color: var(--muted); }
+    .helper { color: var(--muted); margin-bottom: 16px; }
+
+    .table-wrap {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      background: linear-gradient(180deg, #121821, #0f141c);
+    }
+    table { width: 100%; border-collapse: collapse; }
+    thead th {
+      background: linear-gradient(180deg, #172031, #101623);
+      color: var(--muted);
+      font-weight: 600;
+      text-transform: uppercase;
+      font-size: 12px;
+      letter-spacing: 0.5px;
+      border-bottom: 1px solid var(--border);
+      padding: 12px;
+    }
+    tbody td { border-top: 1px solid #162030; padding: 10px; vertical-align: top; }
+    tbody tr:hover { background: rgba(255,255,255,0.03); }
+
+    input[type=text], textarea {
+      width: 100%;
+      color: var(--text);
+      background: #0d1219;
+      border: 1px solid #1f2a36;
+      border-radius: 10px;
+      padding: 10px 12px;
+      font: inherit;
+      outline: none;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+    input[type=text]:focus, textarea:focus {
+      border-color: #2b3c4d;
+      box-shadow: 0 0 0 4px rgba(124,92,255,0.18);
+    }
+    textarea { resize: vertical; min-height: 60px; }
+
+    .actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 14px;
+    }
+    .status { margin-top: 10px; color: var(--muted); }
+
+    .footer {
+      padding: 16px 24px 22px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      color: var(--muted);
+      background: linear-gradient(180deg, transparent, rgba(124,92,255,0.08));
+    }
+    .badge { font-weight: 600; color: #b3c0cc; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="panel">
+      <div class="header">
+        <div class="brand">
+          <div class="logo"></div>
+          <h1>WhatsApp Bot Dashboard</h1>
+        </div>
+        <div class="topbar">
+          <a class="btn" href="/status" target="_blank">Bot Status</a>
+          <a class="btn" href="/qr" target="_blank">QR Code</a>
+          <a class="btn" href="/debug?token=unlockit" target="_blank">Debug</a>
+          <a class="btn primary" href="/dashboard" >Dashboard</a>
+        </div>
+      </div>
+
+      <div class="content">
+        <h2 class="section-title">Bot Responses</h2>
+        <p class="helper">Edit or add responses. Keys correspond to commands or triggers (e.g., <code>welcome</code>, <code>help</code>, <code>ping</code>, <code>info</code>, <code>unknown</code>, or any custom command). Saved to <code>bot-messages.txt</code>.</p>
+
+        <div class="table-wrap">
+          <table id="respTable">
+            <thead>
+              <tr>
+                <th style="width: 24%">Key</th>
+                <th>Response</th>
+                <th style="width: 120px">Actions</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+
+        <div class="actions">
+          <button class="btn" id="addRow">Add Row</button>
+          <button class="btn primary" id="save">Save Changes</button>
+        </div>
+        <div class="status" id="status"></div>
+      </div>
+
+      <div class="footer">
+        <div>Prefix: <span class="badge">!</span> • Responses are merged: <span class="badge">defaults + file</span></div>
+        <div>AI: local Ollama via <code>/ai-reply</code> or <code>!ai</code></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const tbody = document.querySelector('#respTable tbody');
+    const statusEl = document.getElementById('status');
+
+    function addRow(key = '', value = '') {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><input type="text" value="${key}" placeholder="e.g. welcome"></td>
+        <td><textarea rows="3" placeholder="Enter response text">${value}</textarea></td>
+        <td><button class="btn" data-action="del">Delete</button></td>
+      `;
+      tr.querySelector('[data-action="del"]').addEventListener('click', () => tr.remove());
+      tbody.appendChild(tr);
+    }
+
+    async function loadResponses() {
+      statusEl.textContent = 'Loading...';
+      try {
+        const res = await fetch('/bot-responses');
+        const data = await res.json();
+        tbody.innerHTML = '';
+        const effective = data.effective || {};
+        const keys = Object.keys(effective);
+        keys.forEach(k => addRow(k, effective[k] || ''));
+        statusEl.textContent = `Loaded ${keys.length} responses`;
+      } catch (e) {
+        statusEl.textContent = 'Failed to load responses';
+      }
+    }
+
+    async function saveResponses() {
+      const rows = Array.from(tbody.querySelectorAll('tr'));
+      const map = {};
+      for (const r of rows) {
+        const key = r.querySelector('input').value.trim();
+        const val = r.querySelector('textarea').value;
+        if (!key) continue;
+        map[key] = val;
+      }
+      statusEl.textContent = 'Saving...';
+      try {
+        const res = await fetch('/bot-responses', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ responses: map })
+        });
+        const data = await res.json();
+        if (data.success) {
+          statusEl.textContent = 'Saved successfully';
+        } else {
+          statusEl.textContent = 'Failed to save';
+        }
+      } catch (e) {
+        statusEl.textContent = 'Error saving responses';
+      }
+    }
+
+    document.getElementById('addRow').addEventListener('click', () => addRow());
+    document.getElementById('save').addEventListener('click', () => saveResponses());
+
+    loadResponses();
+  </script>
+</body>
+</html>

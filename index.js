@@ -147,6 +147,30 @@ async function handleMessage(message) {
             case 'info':
                 response = botResponses['info'] || botConfig.responses.info;
                 break;
+            case 'ai': {
+                const prompt = args.join(' ').trim();
+                if (!prompt) {
+                    response = botResponses['ai'] || 'Provide a prompt: !ai your question';
+                    break;
+                }
+                try {
+                    const ollamaUrl = process.env.OLLAMA_URL || 'http://localhost:11434';
+                    const model = process.env.OLLAMA_MODEL || 'llama3.2:3b';
+                    const r = await fetch(`${ollamaUrl}/api/generate`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ model, prompt, stream: false })
+                    });
+                    if (!r.ok) {
+                        throw new Error(`Ollama error ${r.status}`);
+                    }
+                    const data = await r.json();
+                    response = data.response || '(no reply)';
+                } catch (e) {
+                    response = `Echo: ${prompt}`;
+                }
+                break;
+            }
             case 'status':
                 if (senderNumber.includes(botConfig.ownerNumber)) {
                     response = `Bot Status: Online\nUptime: ${process.uptime()} seconds\nMemory Usage: ${Math.round(process.memoryUsage().heapUsed / 1024 / 1024)} MB`;
@@ -457,5 +481,77 @@ app.listen(PORT, async () => {
     await connectToWhatsApp();
   } catch (e) {
     logger.error('Initial WhatsApp connection failed:', e?.message || e);
+  }
+});
+
+// Serve static dashboard assets
+app.use(express.static(path.join(__dirname, 'public')));
+app.get('/dashboard', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
+});
+
+function saveBotResponses(map) {
+  const filePath = path.join(__dirname, 'bot-messages.txt');
+  const lines = [];
+  for (const [cmd, resp] of Object.entries(map || {})) {
+    const cleanCmd = String(cmd).trim();
+    const cleanResp = String(resp).replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+    lines.push(`${cleanCmd}|${cleanResp}`);
+  }
+  fs.writeFileSync(filePath, lines.join('\n'));
+}
+
+app.get('/bot-responses', (req, res) => {
+  try {
+    const fileResponses = loadBotResponses();
+    const defaults = botConfig.responses;
+    const effective = { ...defaults, ...fileResponses };
+    res.json({ prefix: botConfig.prefix, fileResponses, defaults, effective });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to read responses', message: e?.message || String(e) });
+  }
+});
+
+app.post('/bot-responses', (req, res) => {
+  try {
+    const map = req.body?.responses;
+    if (!map || typeof map !== 'object') {
+      return res.status(400).json({ error: 'Provide JSON { responses: { cmd: "text" } }' });
+    }
+    saveBotResponses(map);
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to write responses', message: e?.message || String(e) });
+  }
+});
+
+app.post('/ai-reply', async (req, res) => {
+  try {
+    const prompt = (req.body?.prompt || '').trim();
+    if (!prompt) {
+      return res.status(400).json({ error: 'Provide { prompt: "text" }' });
+    }
+    const ollamaUrl = process.env.OLLAMA_URL || 'http://localhost:11434';
+    const model = process.env.OLLAMA_MODEL || 'llama3.2:3b';
+    // Try local Ollama first
+    try {
+      const r = await fetch(`${ollamaUrl}/api/generate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model, prompt, stream: false })
+      });
+      if (!r.ok) {
+        const t = await r.text();
+        throw new Error(`Ollama error ${r.status}: ${t}`);
+      }
+      const data = await r.json();
+      return res.json({ provider: 'ollama', model, reply: data.response });
+    } catch (e) {
+      // Fallback: simple rule-based echo to ensure zero-cost without dependencies
+      const reply = `Echo: ${prompt}`;
+      return res.json({ provider: 'fallback', reply, note: 'Install Ollama for AI replies: https://ollama.com/' });
+    }
+  } catch (error) {
+    res.status(500).json({ error: 'AI reply failed', message: error?.message || String(error) });
   }
 });
