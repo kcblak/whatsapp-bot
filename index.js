@@ -1,6 +1,6 @@
 // index.js
 const express = require('express');
-const { default: makeWASocket, DisconnectReason, useMultiFileAuthState } = require('@whiskeysockets/baileys');
+const { default: makeWASocket, DisconnectReason, useMultiFileAuthState, fetchLatestBaileysVersion } = require('@whiskeysockets/baileys');
 const { Boom } = require('@hapi/boom');
 const fs = require('fs');
 const path = require('path');
@@ -173,10 +173,12 @@ async function connectToWhatsApp() {
             logger.warn('Failed to restore session from DB:', e?.message || e);
         }
         const { state, saveCreds } = await useMultiFileAuthState(authDir);
+        const { version } = await fetchLatestBaileysVersion();
         
         sock = makeWASocket({
             auth: state,
             logger: logger,
+            version,
             // printQRInTerminal deprecated; handle via connection.update
             browser: ['My WhatsApp Bot', 'Chrome', '1.0.0'],
             markOnlineOnConnect: true,
@@ -447,5 +449,13 @@ app.get('/pairing-code', async (req, res) => {
   } catch (error) {
     logger.error('Error generating pairing code:', error);
     res.status(500).json({ error: 'Internal error' });
+  }
+});
+app.listen(PORT, async () => {
+  logger.info(`Server listening on port ${PORT}`);
+  try {
+    await connectToWhatsApp();
+  } catch (e) {
+    logger.error('Initial WhatsApp connection failed:', e?.message || e);
   }
 });
