@@ -244,3 +244,41 @@ Remember: This bot is for educational purposes. Always respect WhatsApp's terms 
 - SSL: use `PGSSL=require` for hosted Postgres (common on Namecheap). If your DB does not require SSL, choose `disable`.
 - You can re-run setup by deleting `.env` or visiting `/setup` when variables are not set.
 - Reset the WhatsApp session any time at `/reset-session?token=YOUR_SECRET`, then visit `/qr` to scan again.
+
+# Namecheap Node.js Deployment Steps
+
+- Prepare project
+  - Ensure `start` script runs the server: `npm start` → `node index.js`.
+  - Confirm `PORT` is set (default `3000`) or configure in the wizard.
+- Create PostgreSQL database (Namecheap/cPanel)
+  - In cPanel, create a PostgreSQL database and user (if your plan supports Postgres).
+  - Note `PGHOST`, `PGPORT` (usually `5432`), `PGDATABASE`, `PGUSER`, `PGPASSWORD`.
+  - For managed DBs, SSL is often required; plan to use `PGSSL=require`.
+- Upload/Deploy the app
+  - Use Namecheap’s cPanel → "Setup Node.js App" (Passenger) to create the app.
+  - Set Application Root to your project folder (e.g., `whatsapp-bot`).
+  - Set Application Startup File to `index.js`.
+  - Click Create/Save.
+- Install dependencies
+  - Open the Terminal in cPanel or SSH into your account.
+  - Navigate to the Application Root and run:
+    - `npm install`
+- Configure environment variables
+  - In "Setup Node.js App", add environment variables:
+    - `PGHOST`, `PGPORT`, `PGDATABASE`, `PGUSER`, `PGPASSWORD`, `PGSSL`
+    - `OWNER_NUMBER`, `RESET_TOKEN`, optional `PORT`
+  - Alternatively, visit `/setup` after starting the app to use the web wizard.
+- Start the app
+  - From "Setup Node.js App", click "Restart" to apply changes.
+  - If you used `/setup`, it writes `.env`, creates the `sessions` table, and restarts automatically.
+- Verify
+  - Visit `/` to check status.
+  - Visit `/setup` (if env vars aren’t set) and complete the form.
+  - Visit `/qr` to scan the WhatsApp QR code.
+  - Use `/reset-session?token=YOUR_SECRET` to force a new QR anytime.
+
+## Tips
+- File write permissions: ensure the app can write `.env` and `auth_info_baileys/`.
+- SSL: set `PGSSL=require` for hosted DBs; Namecheap often enforces SSL for remote DB connections.
+- Logs: view logs in cPanel’s Node.js app manager or terminal to debug issues.
+- Health checks: `/health` reports basic app status; `/status` shows connection and memory info.

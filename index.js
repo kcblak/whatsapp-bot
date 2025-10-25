@@ -404,23 +404,32 @@ app.get('/setup', (req, res) => {
     res.setHeader('Content-Type', 'text/html');
     res.send(`<!doctype html>
     <html>
-    <head><meta charset="utf-8"><title>WhatsApp Bot Setup</title>
-    <style>body{font-family:sans-serif;max-width:720px;margin:24px auto;padding:0 16px}label{display:block;margin-top:12px}input,select{width:100%;padding:8px;margin-top:6px}button{margin-top:16px;padding:10px 16px}</style>
+    <head><meta charset=\"utf-8\"><title>WhatsApp Bot Setup</title>
+    <style>
+      body{font-family:sans-serif;max-width:760px;margin:24px auto;padding:0 16px}
+      .form-row{display:grid;grid-template-columns:220px 1fr;align-items:center;gap:12px;margin-top:12px}
+      label{font-weight:600}
+      input,select{width:100%;padding:8px}
+      button{margin-top:16px;padding:10px 16px}
+      .section{margin-top:24px;padding-top:8px;border-top:1px solid #eee}
+    </style>
     </head>
     <body>
       <h2>First-Time Setup</h2>
       <p>Enter your PostgreSQL and bot settings. These will be saved to .env and the app will restart.</p>
-      <form method="POST" action="/setup">
-        <label>PGHOST<input name="PGHOST" placeholder="db.example.com" required></label>
-        <label>PGPORT<input name="PGPORT" type="number" value="5432" required></label>
-        <label>PGDATABASE<input name="PGDATABASE" placeholder="dbname" required></label>
-        <label>PGUSER<input name="PGUSER" placeholder="dbuser" required></label>
-        <label>PGPASSWORD<input name="PGPASSWORD" type="password" placeholder="dbpassword" required></label>
-        <label>PGSSL<select name="PGSSL"><option value="require">require</option><option value="disable">disable</option></select></label>
-        <label>OWNER_NUMBER<input name="OWNER_NUMBER" placeholder="1234567890" required></label>
-        <label>RESET_TOKEN<input name="RESET_TOKEN" placeholder="strong-secret" required></label>
-        <label>PORT<input name="PORT" type="number" value="3000"></label>
-        <button type="submit">Save and Restart</button>
+      <form method=\"POST\" action=\"/setup\">
+        <div class=\"section\"><h3>PostgreSQL</h3></div>
+        <div class=\"form-row\"><label for=\"PGHOST\">PGHOST</label><input id=\"PGHOST\" name=\"PGHOST\" placeholder=\"db.example.com\" required></div>
+        <div class=\"form-row\"><label for=\"PGPORT\">PGPORT</label><input id=\"PGPORT\" name=\"PGPORT\" type=\"number\" value=\"5432\" required></div>
+        <div class=\"form-row\"><label for=\"PGDATABASE\">PGDATABASE</label><input id=\"PGDATABASE\" name=\"PGDATABASE\" placeholder=\"dbname\" required></div>
+        <div class=\"form-row\"><label for=\"PGUSER\">PGUSER</label><input id=\"PGUSER\" name=\"PGUSER\" placeholder=\"dbuser\" required></div>
+        <div class=\"form-row\"><label for=\"PGPASSWORD\">PGPASSWORD</label><input id=\"PGPASSWORD\" name=\"PGPASSWORD\" type=\"password\" placeholder=\"dbpassword\" required></div>
+        <div class=\"form-row\"><label for=\"PGSSL\">PGSSL</label><select id=\"PGSSL\" name=\"PGSSL\"><option value=\"require\">require</option><option value=\"disable\">disable</option></select></div>
+        <div class=\"section\"><h3>Bot</h3></div>
+        <div class=\"form-row\"><label for=\"OWNER_NUMBER\">OWNER_NUMBER</label><input id=\"OWNER_NUMBER\" name=\"OWNER_NUMBER\" placeholder=\"1234567890\" required></div>
+        <div class=\"form-row\"><label for=\"RESET_TOKEN\">RESET_TOKEN</label><input id=\"RESET_TOKEN\" name=\"RESET_TOKEN\" placeholder=\"strong-secret\" required></div>
+        <div class=\"form-row\"><label for=\"PORT\">PORT</label><input id=\"PORT\" name=\"PORT\" type=\"number\" value=\"3000\"></div>
+        <button type=\"submit\">Save and Restart</button>
       </form>
     </body>
     </html>`);
