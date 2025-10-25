@@ -66,5 +66,52 @@ If configured, the app attempts to backup/restore WhatsApp auth data to Postgres
 - Forbidden on admin pages: log in at `/login`
 - Debug/Reset forbidden: include `?token=RESET_TOKEN` or header `x-reset-token: RESET_TOKEN`
 
+## Deployment (Render)
+- Create Web Service → connect repo.
+- Runtime: `Node`.
+- Build: `npm install`.
+- Start: `npm start`.
+- Environment:
+  - `OWNER_NUMBER`, `SESSION_SECRET`, `RESET_TOKEN`, optional `PORT`.
+  - Optional Postgres: `PGHOST`, `PGPORT`, `PGDATABASE`, `PGUSER`, `PGPASSWORD`, `PGSSL`.
+- After deploy: visit `/login` (create admin) → `/qr` (scan) → `/dashboard`.
+- Notes:
+  - Free tier lacks persistent disk; re-scan QR after restarts or use Postgres backup/restore.
+  - Health endpoints: `/health`, `/status`.
+
+## Deployment (Docker)
+- Example `Dockerfile`:
+  ```Dockerfile
+  FROM node:20-alpine
+  WORKDIR /app
+  COPY package*.json ./
+  RUN npm ci --only=production
+  COPY . .
+  ENV PORT=3000
+  EXPOSE 3000
+  CMD ["node", "index.js"]
+  ```
+- Build and run:
+  - `docker build -t whatsapp-bot .`
+  - `docker run -p 3000:3000 --env-file .env -v $(pwd)/auth_info_baileys:/app/auth_info_baileys whatsapp-bot`
+- Provide `.env` (SESSION_SECRET, RESET_TOKEN, OWNER_NUMBER, optional Postgres).
+- First-run: open `http://localhost:3000/login` → set admin → `/qr` to pair.
+
+## Deployment (Namecheap cPanel Node.js)
+- In cPanel → "Setup Node.js App" (Passenger):
+  - Application Root: project folder.
+  - Startup File: `index.js`.
+  - Node version: 18+.
+- Install deps: open cPanel Terminal → `npm install` in app root.
+- Environment variables (in the app manager):
+  - `OWNER_NUMBER`, `SESSION_SECRET`, `RESET_TOKEN`, optional `PORT`.
+  - Optional Postgres: `PGHOST`, `PGPORT`, `PGDATABASE`, `PGUSER`, `PGPASSWORD`, `PGSSL`.
+- Restart app from cPanel.
+- Visit `/login` to create admin, then `/qr` to pair, then `/dashboard`.
+- Tips:
+  - Ensure write permissions for `.env` and `auth_info_baileys/`.
+  - Many managed DBs require `PGSSL=require`.
+  - Use `/health` and `/status` for checks.
+
 ## License
 MIT – use and modify as needed.
