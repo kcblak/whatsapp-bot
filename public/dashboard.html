@@ -184,7 +184,7 @@
 
       <div class="content">
         <h2 class="section-title">Bot Responses</h2>
-        <p class="helper">Edit or add responses. Keys correspond to commands or triggers (e.g., <code>welcome</code>, <code>help</code>, <code>ping</code>, <code>info</code>, <code>unknown</code>, or any custom command). Saved to <code>bot-messages.txt</code>.</p>
+        <p class="helper">Edit or add responses. Triggers match without a prefix by default (like "micro influencer"). New rows default to <strong>Contains</strong> + <strong>Global</strong>. Saved to <code>bot-messages.txt</code>.</p>
 
         <div class="table-wrap">
           <table id="respTable">
@@ -219,7 +219,7 @@
     const tbody = document.querySelector('#respTable tbody');
     const statusEl = document.getElementById('status');
 
-    function addRow(key = '', value = '', matchType = 'exact', scope = 'global') {
+    function addRow(key = '', value = '', matchType = 'contains', scope = 'global') {
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td><input type="text" value="${key}" placeholder="e.g. welcome"></td>
