@@ -209,10 +209,34 @@ async function handleMessage(message) {
         logger.info(`Message from ${senderNumber}: ${messageText}`);
         logIncomingMessage(senderNumber, messageText);
         const botResponses = loadBotResponses();
+        const entries = loadBotResponseEntries();
+        const textLower = (messageText || '').toLowerCase().trim();
 
-        // Check for micro influencer message
-        if (messageText.toLowerCase().includes('micro influencer')) {
-            const response = botResponses['micro influencer'] || 'Please contact the admin for more information.';
+        // Check custom dashboard entries first (non-prefix triggers)
+        for (const e of entries) {
+            const keyLower = String(e.key || '').toLowerCase().trim();
+            if (!keyLower) continue;
+            // Scope filter
+            if (e.scope === 'dm' && isGroup) continue;
+            if (e.scope === 'group' && !isGroup) continue;
+
+            const matched = e.matchType === 'contains'
+                ? textLower.includes(keyLower)
+                : textLower === keyLower;
+
+            if (matched) {
+                const formattedResponse = String(e.response || '')
+                    .replace(/\\n/g, '\n')
+                    .replace('{time}', new Date().toLocaleString());
+                await sock.sendMessage(senderNumber, { text: formattedResponse });
+                return;
+            }
+        }
+
+        // Check for micro influencer message (fallback if no custom entry matched)
+        if (textLower.includes('micro influencer')) {
+            const microEntry = entries.find(e => String(e.key || '').toLowerCase().trim() === 'micro influencer');
+            const response = microEntry?.response || 'Please contact the admin for more information.';
             // Replace \n with actual line breaks
             const formattedResponse = response.replace(/\\n/g, '\n');
             await sock.sendMessage(senderNumber, { text: formattedResponse });
