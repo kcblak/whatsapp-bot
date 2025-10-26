@@ -782,8 +782,13 @@ app.all('/reset-setup', async (req, res) => {
     }
 });
 
-app.get('/status', requireAuthOrRedirect, (req, res) => {
+app.get('/status', (req, res) => {
     const acceptsHtml = req.headers.accept && req.headers.accept.includes('text/html');
+
+    // Allowlist: cron-job.org can access JSON without admin login
+    const ua = String(req.headers['user-agent'] || '').toLowerCase();
+    const referer = String(req.headers['referer'] || '').toLowerCase();
+    const isCronJob = ua.includes('cron-job.org') || referer.includes('cron-job.org');
     
     const statusData = {
         connected: isConnected,
@@ -791,9 +796,21 @@ app.get('/status', requireAuthOrRedirect, (req, res) => {
         memory: process.memoryUsage(),
         timestamp: new Date().toISOString()
     };
-    
+
+    // If not authenticated, only allow cron-job.org JSON access
+    if (!(req.session && req.session.authenticated)) {
+        if (!acceptsHtml && isCronJob) {
+            return res.json(statusData);
+        }
+        if (acceptsHtml) {
+            return res.redirect('/login');
+        } else {
+            return res.status(401).json({ error: 'Authentication required' });
+        }
+    }
+
+    // Authenticated users: serve HTML or JSON as requested
     if (acceptsHtml) {
-        // Serve styled HTML page for browsers
         const formatUptime = (seconds) => {
             const days = Math.floor(seconds / 86400);
             const hours = Math.floor((seconds % 86400) / 3600);
