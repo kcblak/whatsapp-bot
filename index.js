@@ -39,6 +39,8 @@ app.use(express.urlencoded({ extended: true }));
 // Store for the WhatsApp socket
 let sock = null;
 let qrCode = null;
+// Persistent connection status driven by Baileys events
+let isConnected = false;
 
 // Logger configuration
 const logger = pino({ level: 'info' });
@@ -329,12 +331,16 @@ async function connectToWhatsApp() {
                 const shouldReconnect = (lastDisconnect?.error instanceof Boom)
                     ? lastDisconnect.error.output.statusCode !== DisconnectReason.loggedOut
                     : true;
+                // Mark disconnected when Baileys reports close
+                isConnected = false;
                 logger.info('Connection closed due to', lastDisconnect?.error, ', reconnecting', shouldReconnect);
                 if (shouldReconnect) {
                     setTimeout(connectToWhatsApp, 5000);
                 }
             } else if (connection === 'open') {
                 logger.info('WhatsApp connection opened successfully');
+                // Mark connected when Baileys reports open
+                isConnected = true;
                 qrCode = null;
             }
         });
@@ -472,7 +478,7 @@ app.get('/', (req, res) => {
         // API response for non-browser requests
         res.json({
             status: 'WhatsApp Bot is running',
-            connected: sock?.ws?.readyState === 1,
+            connected: isConnected,
             qrCode: qrCode ? 'QR Code available at /qr' : 'Connected or no QR code needed'
         });
     }
@@ -765,7 +771,7 @@ app.get('/status', requireAuthOrRedirect, (req, res) => {
     const acceptsHtml = req.headers.accept && req.headers.accept.includes('text/html');
     
     const statusData = {
-        connected: sock?.ws?.readyState === 1,
+        connected: isConnected,
         uptime: process.uptime(),
         memory: process.memoryUsage(),
         timestamp: new Date().toISOString()
@@ -1115,7 +1121,7 @@ app.get('/debug', async (req, res) => {
     }
     const readyState = sock?.ws?.readyState ?? null;
     res.json({
-      connected: readyState === 1,
+      connected: isConnected,
       readyState,
       qrAvailable: Boolean(qrCode),
       authFiles,
