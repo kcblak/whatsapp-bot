@@ -190,8 +190,10 @@
           <table id="respTable">
             <thead>
               <tr>
-                <th style="width: 24%">Key</th>
+                <th style="width: 22%">Key</th>
                 <th>Response</th>
+                <th style="width: 120px">Match</th>
+                <th style="width: 120px">Scope</th>
                 <th style="width: 120px">Actions</th>
               </tr>
             </thead>
@@ -217,11 +219,24 @@
     const tbody = document.querySelector('#respTable tbody');
     const statusEl = document.getElementById('status');
 
-    function addRow(key = '', value = '') {
+    function addRow(key = '', value = '', matchType = 'exact', scope = 'global') {
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td><input type="text" value="${key}" placeholder="e.g. welcome"></td>
         <td><textarea rows="3" placeholder="Enter response text">${value}</textarea></td>
+        <td>
+          <select class="match">
+            <option value="exact" ${matchType === 'exact' ? 'selected' : ''}>Exact</option>
+            <option value="contains" ${matchType === 'contains' ? 'selected' : ''}>Contains</option>
+          </select>
+        </td>
+        <td>
+          <select class="scope">
+            <option value="global" ${scope === 'global' ? 'selected' : ''}>Global</option>
+            <option value="dm" ${scope === 'dm' ? 'selected' : ''}>DM Only</option>
+            <option value="group" ${scope === 'group' ? 'selected' : ''}>Group Only</option>
+          </select>
+        </td>
         <td><button class="btn" data-action="del">Delete</button></td>
       `;
       tr.querySelector('[data-action="del"]').addEventListener('click', () => tr.remove());
@@ -234,10 +249,15 @@
         const res = await fetch('/bot-responses');
         const data = await res.json();
         tbody.innerHTML = '';
-        const effective = data.effective || {};
-        const keys = Object.keys(effective);
-        keys.forEach(k => addRow(k, effective[k] || ''));
-        statusEl.textContent = `Loaded ${keys.length} responses`;
+        if (Array.isArray(data.entries)) {
+          data.entries.forEach(e => addRow(e.key || '', e.response || '', e.matchType || 'exact', e.scope || 'global'));
+          statusEl.textContent = `Loaded ${data.entries.length} responses`;
+        } else {
+          const effective = data.effective || {};
+          const keys = Object.keys(effective);
+          keys.forEach(k => addRow(k, effective[k] || '', 'exact', 'global'));
+          statusEl.textContent = `Loaded ${keys.length} responses`;
+        }
       } catch (e) {
         statusEl.textContent = 'Failed to load responses';
       }
@@ -245,19 +265,21 @@
 
     async function saveResponses() {
       const rows = Array.from(tbody.querySelectorAll('tr'));
-      const map = {};
+      const entries = [];
       for (const r of rows) {
         const key = r.querySelector('input').value.trim();
         const val = r.querySelector('textarea').value;
+        const matchType = r.querySelector('select.match').value;
+        const scope = r.querySelector('select.scope').value;
         if (!key) continue;
-        map[key] = val;
+        entries.push({ key, response: val, matchType, scope });
       }
       statusEl.textContent = 'Saving...';
       try {
         const res = await fetch('/bot-responses', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ responses: map })
+          body: JSON.stringify({ entries })
         });
         const data = await res.json();
         if (data.success) {

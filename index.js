@@ -166,6 +166,28 @@ function loadBotResponses() {
     return responses;
 }
 
+// Advanced loader: returns entries with matchType and scope (backward compatible)
+function loadBotResponseEntries() {
+    const filePath = path.join(__dirname, 'bot-messages.txt');
+    const entries = [];
+    if (fs.existsSync(filePath)) {
+        const lines = fs.readFileSync(filePath, 'utf-8').split('\n');
+        for (const line of lines) {
+            if (line.trim().length === 0 || line.startsWith('#')) continue;
+            const parts = line.split('|');
+            const rawKey = (parts[0] || '').trim();
+            if (!rawKey) continue;
+            const key = rawKey.startsWith(botConfig.prefix) ? rawKey.slice(botConfig.prefix.length) : rawKey;
+            const response = String(parts[1] || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+            const matchType = ((parts[2] || '').trim().toLowerCase()) === 'contains' ? 'contains' : 'exact';
+            const scopePart = (parts[3] || '').trim().toLowerCase();
+            const scope = scopePart === 'group' ? 'group' : scopePart === 'dm' ? 'dm' : 'global';
+            entries.push({ key, response, matchType, scope });
+        }
+    }
+    return entries;
+}
+
 // Utility to log incoming messages
 function logIncomingMessage(sender, message) {
     const filePath = path.join(__dirname, 'incoming-messages.txt');
@@ -1149,23 +1171,33 @@ app.get('/dashboard', requireAuthOrRedirect, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
 });
 
-function saveBotResponses(map) {
+function saveBotResponses(mapOrEntries) {
   const filePath = path.join(__dirname, 'bot-messages.txt');
   const lines = [];
-  for (const [cmd, resp] of Object.entries(map || {})) {
-    const cleanCmd = String(cmd).trim();
-    const cleanResp = String(resp).replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-    lines.push(`${cleanCmd}|${cleanResp}`);
+  if (Array.isArray(mapOrEntries)) {
+    for (const e of mapOrEntries) {
+      const key = String(e.key || '').trim();
+      const resp = String(e.response || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+      const matchType = e.matchType === 'contains' ? 'contains' : 'exact';
+      const scope = e.scope === 'group' ? 'group' : (e.scope === 'dm' ? 'dm' : 'global');
+      if (!key) continue;
+      lines.push(`${key}|${resp}|${matchType}|${scope}`);
+    }
+  } else {
+    for (const [cmd, resp] of Object.entries(mapOrEntries || {})) {
+      const cleanCmd = String(cmd).trim();
+      const cleanResp = String(resp).replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+      if (!cleanCmd) continue;
+      lines.push(`${cleanCmd}|${cleanResp}|exact|global`);
+    }
   }
   fs.writeFileSync(filePath, lines.join('\n'));
 }
 
 app.get('/bot-responses', requireAuth, (req, res) => {
   try {
-    const fileResponses = loadBotResponses();
-    const defaults = botConfig.responses;
-    const effective = { ...defaults, ...fileResponses };
-    res.json({ prefix: botConfig.prefix, fileResponses, defaults, effective });
+    const entries = loadBotResponseEntries();
+    res.json({ prefix: botConfig.prefix, entries });
   } catch (e) {
     res.status(500).json({ error: 'Failed to read responses', message: e?.message || String(e) });
   }
@@ -1173,14 +1205,15 @@ app.get('/bot-responses', requireAuth, (req, res) => {
 
 app.post('/bot-responses', requireAuth, (req, res) => {
   try {
-    const map = req.body?.responses;
-    if (!map || typeof map !== 'object') {
-      return res.status(400).json({ error: 'Provide JSON { responses: { cmd: "text" } }' });
+    const entries = Array.isArray(req.body?.entries) ? req.body.entries : null;
+    const map = req.body?.responses && typeof req.body.responses === 'object' ? req.body.responses : null;
+    if (!entries && !map) {
+      return res.status(400).json({ error: 'Provide entries array or responses map' });
     }
-    saveBotResponses(map);
+    saveBotResponses(entries || map);
     res.json({ success: true });
   } catch (e) {
-    res.status(500).json({ error: 'Failed to write responses', message: e?.message || String(e) });
+    res.status(500).json({ error: 'Failed to save responses', message: e?.message || String(e) });
   }
 });
 
