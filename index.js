@@ -233,15 +233,6 @@ async function handleMessage(message) {
             }
         }
 
-        // Check for micro influencer message (fallback if no custom entry matched)
-        if (textLower.includes('micro influencer')) {
-            const microEntry = entries.find(e => String(e.key || '').toLowerCase().trim() === 'micro influencer');
-            const response = microEntry?.response || 'Please contact the admin for more information.';
-            // Replace \n with actual line breaks
-            const formattedResponse = response.replace(/\\n/g, '\n');
-            await sock.sendMessage(senderNumber, { text: formattedResponse });
-            return;
-        }
 
         if (!messageText.startsWith(botConfig.prefix)) {
             if (!isGroup && messageText.toLowerCase().includes('hello')) {
